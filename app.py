@@ -27,7 +27,7 @@ class OrderManager():
     def label_orders(self, orders):  # pairs orders with their ids
         labeled_orders = {}
         for order in orders:
-            order_id = order.get("id")
+            order_id = order["id"]
             labeled_orders.update({order_id: order})
         return labeled_orders
 
@@ -42,17 +42,15 @@ class OrderManager():
             for name, credentials in self.shops.items():
                 orders = requests.get(
                     f"https://{name}.myshopify.com/admin/api/{self.version}/{fields}",
-                    auth=(credentials.get("key"), credentials.get("password")))
+                    auth=(credentials["key"], credentials["password"]))
 
+                orders = orders.json()["orders"]
                 labeled_orders = self.label_orders(orders)
+                self.unfulfilled_orders.update(labeled_orders)
 
-                for order in labeled_orders:
-                    self.unfulfilled_orders.update(order)
-
-            return unfulfilled_orders
+            print(self.unfulfilled_orders)
 
         # need to write an else case and a try block
-
 
     def list_order_ids(orders):
         for order_id in orders.keys():
