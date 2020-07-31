@@ -39,11 +39,15 @@ class Mailer():
 
 
     def craft_email(self, orders):  # order = order object
+        message = "---------------------------------------------"
+        
         for order in orders.values():
+            print('first order')
             timestamp, junk = order["processed_at"].split("T")
-            message = f"\nOrder ID: {order['id']} \nDate Processed: {timestamp}"
+            message += f"\nOrder ID: {order['id']} \nDate Processed: {timestamp}"
 
             for item in order["line_items"]:
+                print('first item')
                 product_id = item['product_id']
                 title = item['title']
                 quantity = item['quantity']
@@ -54,9 +58,11 @@ class Mailer():
                 shipping_info = self.get_shipping_info(order)
 
                 message += name_id + quantity_size + shipping_info
+                print('done with first item')
 
             message += "\n---------------------------------------------"
-
+            print('done with first order')
+    
         return message
 
 
