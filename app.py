@@ -1,8 +1,10 @@
-import json
-import requests
+import json, requests
+from datetime import datetime
 
+from mailer import Mailer
 
-class OrderManager():
+# OM: OrderManager
+class OM():
 
     def __init__(self):
 
@@ -24,13 +26,6 @@ class OrderManager():
         }
 
 
-    def label_orders(self, orders):  # pairs orders with their ids
-        labeled_orders = {}
-        for order in orders:
-            order_id = order["id"]
-            labeled_orders.update({order_id: order})
-        return labeled_orders
-
     # Maybe write a function that makes API calls?
 
     def get_unfulfilled_orders(self, shops="all"):  # grabs all unfulfilled orders
@@ -48,11 +43,29 @@ class OrderManager():
                 labeled_orders = self.label_orders(orders)
                 self.unfulfilled_orders.update(labeled_orders)
 
-            print(self.unfulfilled_orders)
+            return self.unfulfilled_orders
 
         # need to write an else case and a try block
 
-    def list_order_ids(orders):
-        for order_id in orders.keys():
-            print(order_id)
 
+    def print_fulfillment_email(self):
+        mailer = Mailer()
+        message = mailer.craft_email(self.unfulfilled_orders)
+        print(message)
+
+
+    def send_fulfillment_email(self):
+        pass
+
+
+    def print_order_ids(self, orders):
+        for order in orders.values():
+            print(order["id"])
+
+
+    def label_orders(self, orders):  # pairs orders with their ids
+        labeled_orders = {}
+        for order in orders:
+            order_id = order["id"]
+            labeled_orders.update({order_id: order})
+        return labeled_orders
