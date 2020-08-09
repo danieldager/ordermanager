@@ -8,17 +8,10 @@ class Mailer():
         self.port = 465
         self.context = ssl.create_default_context()
 
-        self.sender_email = "fillsanz@gmail.com"
+        self.sender_email = "fillsanzllc@gmail.com"
         self.password = "FuckFelipe247"
 
         self.receiver_email = "ddager16@gmail.com"
-        self.message = '''\
-        Subject: Today's Orders
-
-        Order ID: 2600793145496
-        Date Processed: "2020-07-28"
-
-        '''
 
 
     def get_shipping_info(self, order):
@@ -39,15 +32,13 @@ class Mailer():
 
 
     def craft_email(self, orders):  # order = order object
-        message = "---------------------------------------------"
-        
+        message = "Subject: Today's Orders\n\n"
+
         for order in orders.values():
-            print('first order')
             timestamp, junk = order["processed_at"].split("T")
             message += f"\nOrder ID: {order['id']} \nDate Processed: {timestamp}"
 
             for item in order["line_items"]:
-                print('first item')
                 product_id = item['product_id']
                 title = item['title']
                 quantity = item['quantity']
@@ -58,21 +49,23 @@ class Mailer():
                 shipping_info = self.get_shipping_info(order)
 
                 message += name_id + quantity_size + shipping_info
-                print('done with first item')
 
             message += "\n---------------------------------------------"
-            print('done with first order')
-    
+
         return message
 
 
+    def send_email(self, orders):
+        message = self.craft_email(orders)
+        with smtplib.SMTP_SSL("smtp.gmail.com", self.port, context=self.context) as server:
+            server.login(self.sender_email, self.password)
+            server.sendmail(self.sender_email, self.receiver_email, message)
 
-    # with smtplib.SMTP_SSL("smtp.gmail.com", self.port, context=self.context) as server:
-    #     server.login(self.sender_email, self.password)
+        print("Email Sent!")
 
 
     def convert_timestamp(self, order):
-         timestamp = order["processed_at"]
-         ts_format = "%Y-%m-%dT%H:%M:%S%z"
-         ts_object = datetime.strptime(timestamp, ts_format)
-         return ts_object
+        timestamp = order["processed_at"]
+        ts_format = "%Y-%m-%dT%H:%M:%S%z"
+        ts_object = datetime.strptime(timestamp, ts_format)
+        return ts_object
