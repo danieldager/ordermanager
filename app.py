@@ -1,21 +1,20 @@
 import json, requests
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
 from mailer import Mailer
 
-# OM: OrderManager
-class OM():
+
+class OrderManager():
 
     def __init__(self):
 
         self.version = "2020-07"
 
-        # don't forget to convert to string with .isoformat()
-        self.current_time = datetime.now().astimezone().replace(microsecond=0)
-        # self.last_sweep_at = self.current_time - timedelta(1)
-        self.last_sweep_at = "2020-08-08T18:56:45-04:00"
+        current_time = datetime.now().astimezone().replace(microsecond=0)
+        self.last_time = (current_time - timedelta(1)).isoformat()
 
         self.new_orders = {}
+
         self.unfulfilled_orders = {}
 
         self.main = {
@@ -27,6 +26,7 @@ class OM():
 
         self.shops = {
             "sanz-inc": {
+                "id": 3894361751709,
                 "email": "ddager16@gmail.com",
                 "key": "97dca6b186fc5e50b769417fa3d56b27",
                 "password": "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"
@@ -42,10 +42,31 @@ class OM():
         self.mailer = Mailer()
 
 
+    def do_everything(self):
+        self.get_new_orders()
+        self.send_invoices()
+
+
+    def get_request(self, params):
+        request = requests.get(
+            f"https://{self.main['name']}.myshopify.com/admin/api/{params}",
+            auth=(self.main["key"], self.main["password"]))
+
+        return request
+
+    def post_request(self, params, data):
+        headers = {"Content-Type": "application/json"}
+        request = requests.post(
+            f"https://{self.main['name']}.myshopify.com/admin/api/{params}",
+            auth=(self.main["key"], self.main["password"]),
+            headers=headers, data=data)
+
+        return request
+
+
+
     def get_new_orders(self):
-        # should I just call .isoformat() in the __init__ method?
-        date_str = self.last_sweep_at  # .isoformat()
-        params = f"{self.version}/orders.json?updated_at_min={date_str}"
+        params = f"{self.version}/orders.json?updated_at_min={self.last_time}"
 
         for name, credentials in self.shops.items():
             order_list = requests.get(
@@ -58,101 +79,82 @@ class OM():
 
     def get_product(self, title):  # wtf is going on with these lists?
         params = f"{self.version}/products.json?title={title}"
-        product = requests.get(
-            f"https://{self.main['name']}.myshopify.com/admin/api/{params}",
-            auth=(self.main["key"], self.main["password"]))
+        product = self.get_request(params).json()["products"][0]
 
-        return product.json()["products"][0]
+        return product
 
 
-    def get_product_list(self, order):
-        product_list = []
-        for item in order["line_items"]:
-            title = item["title"]
-            variant_title = item["variant_title"]
-            quantity = item["quantity"]
+    def make_draft_order(self, order_list):
+        draft_order = {}
+        line_items = []
 
-            product = self.get_product(title)
-            for variant in product["variants"]:
-                if variant["title"] == variant_title:
-                    variant_id = variant["id"]
+        for order in order_list:
+            shipping_address = order["shipping_address"]
+            draft_order.update({"shipping_address": shipping_address})
 
-            line_item = {
-                "variant_id": variant_id,
-                "quantity": quantity
-            }
+            for item in order["line_items"]:
+                title = item["title"]
+                variant_title = item["variant_title"]
+                quantity = item["quantity"]
 
-            product_list.append(line_item)
+                product = self.get_product(title)
+                for variant in product["variants"]:
+                    if variant["title"] == variant_title:
+                        variant_id = variant["id"]
 
-        return product_list
+                line_item = {
+                    "variant_id": variant_id,
+                    "quantity": quantity
+                }
 
+                line_items.append(line_item)
 
-    def get_order_info(self, order):
-        pass
+            draft_order.update({"line_items": line_items})
 
-
-
-    def draft_order(self, order):
-        data = {
-            "draft_order": {}
-        }
-
-        print(order)
-
-        product_list = self.get_product_list(order)
-        data.update({"draft_order": {"line_items": product_list}})
-
-        data = json.dumps(data)
+        return draft_order
 
 
-        self.simple_draft_order(data)
-
-
-
-
-
-
-    def simple_draft_order(self, order):
+    def send_draft_order(self, data):
         params = f"{self.version}/draft_orders.json"
-        headers = {"Content-Type": "application/json"}
-
-        request = requests.post(
-            f"https://{self.main['name']}.myshopify.com/admin/api/{params}",
-            auth=(self.main["key"], self.main["password"]),
-            headers=headers, data=order)
-
-        print(request.json())
+        draft_order = self.post_request(params, data).json()
+        draft_order_id = draft_order["draft_order"]["id"]
+        return draft_order_id  # ugly workaround
 
 
+    def send_invoice(self, id):
+        params = f"{self.version}/draft_orders/{id}/send_invoice.json"
+        data = {"draft_order_invoice": {}}
 
-
-
-
-
+        invoice = self.post_request(params, data)
+        return invoice
 
 
     def send_invoices(self):
-        for name, order_list in self.new_orders:
-            key = self.shop["name"]["key"]
-            password = self.shop["name"]["password"]
+        for name, order_list in self.new_orders.items():
 
-            for order in order_list:
-                product_list = self.get_product_list(orders)
+            if not order_list:  # if order list is empty
+                continue  # go to the next loop
 
-            # This is where our POST request should go
+            draft_order = self.make_draft_order(order_list)
+            draft_order.update({"customer": {"id": self.shops[name]["id"]}})
+            draft_order = {"draft_order": draft_order}
+            draft_order = json.dumps(draft_order)
 
-
-    def label_orders(self, orders):  # {order_id: order_data}
-        labeled_orders = {}
-        for order in orders:
-            order_id = order["id"]
-            labeled_orders.update({order_id: order})
-        return labeled_orders
+            draft_order_id = self.send_draft_order(draft_order)
+            self.send_invoice(draft_order_id)
 
 
-    def get_unfulfilled_orders(self, shops="all"):  # grabs all unfulfilled orders
-        parameters = "orders.json?fulfillment_status=unfulfilled"
-        self.get_request(parameters, shops)
+
+
+    def get_customers(self):
+        params = f"{self.version}/customers.json"
+        customer_list = self.get_request(params).json()
+        return customer_list
+
+
+    def get_unfulfilled_orders(self):  # grabs all unfulfilled orders
+        params = "orders.json?fulfillment_status=unfulfilled"
+        self.get_request(params)
 
 
     def send_fulfillment_email(self):
@@ -165,16 +167,6 @@ class OM():
         self.send_fulfillment_email()
 
 
-    def print_order_ids(self, orders):
-        for order in orders.values():
-            print(order["id"])
 
-
-
-
-
-om = OM()
-om.get_new_orders()
-
-for order in om.new_orders["sanz-inc"]:
-    om.draft_order(order)
+om = OrderManager()
+om.do_everything()
