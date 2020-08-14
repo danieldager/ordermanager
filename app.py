@@ -145,7 +145,6 @@ class OrderManager():
 
 
 
-
     def get_customers(self):
         params = f"{self.version}/customers.json"
         customer_list = self.get_request(params).json()
