@@ -33,7 +33,7 @@ class Mailer():
     def craft_email(self, orders):  # order = order object
         message = "Subject: Today's Orders\n\n"
 
-        for order in orders.values():
+        for order in orders:
             timestamp, junk = order["processed_at"].split("T")
             message += f"\nOrder ID: {order['id']} \nDate Processed: {timestamp}"
 
@@ -43,13 +43,13 @@ class Mailer():
                 quantity = item['quantity']
                 size = item["variant_title"]
 
-                name_id = f"\nItem Name: {title} \nProduct ID: {product_id}"
+                name_id = f"\n\nItem Name: {title} \nProduct ID: {product_id}"
                 quantity_size = f"\nQuantity: {quantity} \nsize: {size}"
                 shipping_info = self.get_shipping_info(order)
 
                 message += name_id + quantity_size + shipping_info
 
-            message += "\n---------------------------------------------"
+            message += "\n-----------------------------------------------------"
 
         return message
 

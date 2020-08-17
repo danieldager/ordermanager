@@ -14,15 +14,14 @@ class OrderManager():
         self.last_time = (current_time - timedelta(1)).isoformat()
 
         self.new_orders = {}
+        self.paid_orders = {}
 
         self.unfulfilled_orders = {}
 
-        self.main = {
-            "name": "fillsanzshop",
-            "email": "fillsanzofficial@gmail.com",
-            "key": "07fcc5c43475cd47234e63ce0ddbb5f7",
-            "password": "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"
-        }
+        self.name = "fillsanzshop"
+        self.key = "07fcc5c43475cd47234e63ce0ddbb5f7"
+        self.password = "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"
+        self.email = "fillsanzofficial@gmail.com"
 
         self.shops = {
             "sanz-inc": {
@@ -45,20 +44,21 @@ class OrderManager():
     def do_everything(self):
         self.get_new_orders()
         self.send_invoices()
+        self.get_paid_orders()
 
 
     def get_request(self, params):
         request = requests.get(
-            f"https://{self.main['name']}.myshopify.com/admin/api/{params}",
-            auth=(self.main["key"], self.main["password"]))
+            f"https://{self.name}.myshopify.com/admin/api/{self.version}/{params}",
+            auth=(self.key, self.password))
 
         return request
 
     def post_request(self, params, data):
         headers = {"Content-Type": "application/json"}
         request = requests.post(
-            f"https://{self.main['name']}.myshopify.com/admin/api/{params}",
-            auth=(self.main["key"], self.main["password"]),
+            f"https://{self.name}.myshopify.com/admin/api/{self.version}/{params}",
+            auth=(self.key, self.password),
             headers=headers, data=data)
 
         return request
@@ -66,11 +66,11 @@ class OrderManager():
 
 
     def get_new_orders(self):
-        params = f"{self.version}/orders.json?updated_at_min={self.last_time}"
+        params = f"orders.json?updated_at_min={self.last_time}"
 
         for name, credentials in self.shops.items():
             order_list = requests.get(
-                f"https://{name}.myshopify.com/admin/api/{params}",
+                f"https://{name}.myshopify.com/admin/api/{self.version}/{params}",
                 auth=(credentials["key"], credentials["password"]))
 
             order_list = order_list.json()["orders"]  # converts json to dict
@@ -78,7 +78,7 @@ class OrderManager():
 
 
     def get_product(self, title):  # wtf is going on with these lists?
-        params = f"{self.version}/products.json?title={title}"
+        params = f"products.json?title={title}"
         product = self.get_request(params).json()["products"][0]
 
         return product
@@ -87,10 +87,14 @@ class OrderManager():
     def make_draft_order(self, order_list):
         draft_order = {}
         line_items = []
+        order_ids = []
 
         for order in order_list:
+            print(order)
             shipping_address = order["shipping_address"]
             draft_order.update({"shipping_address": shipping_address})
+
+            order_ids.append(str(order["id"]))
 
             for item in order["line_items"]:
                 title = item["title"]
@@ -110,19 +114,20 @@ class OrderManager():
                 line_items.append(line_item)
 
             draft_order.update({"line_items": line_items})
+            draft_order.update({"note": ",".join(order_ids)})
 
         return draft_order
 
 
     def send_draft_order(self, data):
-        params = f"{self.version}/draft_orders.json"
+        params = f"draft_orders.json"
         draft_order = self.post_request(params, data).json()
         draft_order_id = draft_order["draft_order"]["id"]
         return draft_order_id  # ugly workaround
 
 
     def send_invoice(self, id):
-        params = f"{self.version}/draft_orders/{id}/send_invoice.json"
+        params = f"draft_orders/{id}/send_invoice.json"
         data = {"draft_order_invoice": {}}
 
         invoice = self.post_request(params, data)
@@ -144,21 +149,26 @@ class OrderManager():
             self.send_invoice(draft_order_id)
 
 
+    def get_paid_orders(self):
+        params = f"orders.json?updated_at_min={self.last_time}&financial_status=paid"
+        self.paid_orders = self.get_request(params).json()["orders"]
 
-    def get_customers(self):
-        params = f"{self.version}/customers.json"
-        customer_list = self.get_request(params).json()
-        return customer_list
-
-
-    def get_unfulfilled_orders(self):  # grabs all unfulfilled orders
-        params = "orders.json?fulfillment_status=unfulfilled"
-        self.get_request(params)
+        return self.paid_orders
 
 
     def send_fulfillment_email(self):
-        message = self.mailer.send_email(self.unfulfilled_orders)
+        message = self.mailer.send_email(self.paid_orders)
         print(message)
+
+
+
+
+
+    def get_customers(self):
+        params = f"customers.json"
+        customer_list = self.get_request(params).json()
+        return customer_list
+
 
 
     def unfulfilled_email(self):
@@ -168,4 +178,6 @@ class OrderManager():
 
 
 om = OrderManager()
-om.do_everything()
+om.get_paid_orders()
+print(om.paid_orders)
+om.send_fulfillment_email()
