@@ -41,6 +41,7 @@ class OrderManager():
                 "email": "kennygreenelionslead@gmail.com",
                 "key": "c6326d6096e6ead5c755aa9aec5cd290",
                 "password": "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"
+            }
         }
 
         self.mailer = Mailer()
