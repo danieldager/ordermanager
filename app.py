@@ -26,7 +26,7 @@ class OrderManager():
         self.shops = {
             "sanz-inc": {
                 "id": 3894361751709,
-                "email": "ddager16@gmail.com",
+                "email": "dager.verde@gmail.com",
                 "key": "97dca6b186fc5e50b769417fa3d56b27",
                 "password": "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"
             },
@@ -35,7 +35,12 @@ class OrderManager():
                 "email": "ddager16@gmail.com",
                 "key": "11d47778cf35d1932bab756cb1c77dd7",
                 "password": "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"
-            }
+            },
+            
+            "kenny-greene-music": {
+                "email": "kennygreenelionslead@gmail.com",
+                "key": "c6326d6096e6ead5c755aa9aec5cd290",
+                "password": "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"
         }
 
         self.mailer = Mailer()
