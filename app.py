@@ -1,7 +1,7 @@
 import json, requests
 from datetime import datetime, timedelta
 
-from mailer import Mailer
+from mailman import Mailman
 
 
 class OrderManager():
@@ -36,7 +36,7 @@ class OrderManager():
                 "key": "11d47778cf35d1932bab756cb1c77dd7",
                 "password": "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"
             },
-            
+
             "kenny-greene-music": {
                 "email": "kennygreenelionslead@gmail.com",
                 "key": "c6326d6096e6ead5c755aa9aec5cd290",
@@ -44,13 +44,14 @@ class OrderManager():
             }
         }
 
-        self.mailer = Mailer()
+        self.mailman = Mailman()
 
 
     def do_everything(self):
         self.get_new_orders()
         self.send_invoices()
         self.get_paid_orders()
+        self.send_fulfillment_email()
 
 
     def get_request(self, params):
@@ -163,7 +164,7 @@ class OrderManager():
 
 
     def send_fulfillment_email(self):
-        message = self.mailer.send_email(self.paid_orders)
+        message = self.mailman.send_email(self.paid_orders)
         print(message)
 
 
