@@ -15,6 +15,7 @@ class OrderManager():
 
         self.new_orders = {}
         self.draft_orders = {}
+        self.invoices = {}
         self.paid_orders = {}
 
         self.unfulfilled_orders = {}
@@ -24,15 +25,17 @@ class OrderManager():
         self.password = "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"
         self.email = "fillsanzofficial@gmail.com"
 
+        # Still need to update these with actual shop information
         self.shops = {
             "sanz-inc": {
                 "id": 3894361751709,
-                "email": "dager.verde@gmail.com",
+                "email": "ddager16@gmail.com",
                 "key": "97dca6b186fc5e50b769417fa3d56b27",
                 "password": "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"
             },
 
             "proper-rhythm": {
+                "id": 3894361751709,
                 "email": "ddager16@gmail.com",
                 "key": "11d47778cf35d1932bab756cb1c77dd7",
                 "password": "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"
@@ -51,13 +54,14 @@ class OrderManager():
 
     def do_everything(self):
         self.get_new_orders()
+        self.make_draft_orders()
+        self.send_draft_orders()
         self.send_invoices()
-        self.get_paid_orders()
         # self.send_fulfillment_email()
         # print(self.paid_orders)
 
-    # See https://shopify.dev/docs/admin-api/rest/reference/orders/order for 
-    # examples on how to format your param(eter)s
+    # See https://shopify.dev/docs/admin-api/rest/reference/orders/order
+    # for examples on how to format your param(eter)s
     def get_request(self, params):
         request = requests.get(
             f"https://{self.name}.myshopify.com/admin/api/{self.version}/{params}",
@@ -99,15 +103,17 @@ class OrderManager():
     # inserted into the dict self.draft_orders as {name: draft_orders}
     def make_draft_orders(self):
         for name, orders in self.new_orders.items():
+            draft_orders = []  # I should really consider breaking this up
 
-            draft_orders = {}  # I should really consider breaking this up
             for order in orders:
                 draft_order = {}
 
                 shipping_address = order.get("shipping_address")
                 if shipping_address is None:  # some test orders don't have one
                     shipping_address = order.get("billing_address")
+
                 draft_order.update({"shipping_address": shipping_address})
+                draft_order.update({"customer": {"id": self.shops[name]["id"]}})
 
                 line_items = []
                 for item in order["line_items"]:
@@ -130,47 +136,45 @@ class OrderManager():
                 draft_order.update({"line_items": line_items})
 
                 order_id = order["id"]
-                draft_orders.update({order_id: draft_order})
+                draft_order.update({"note": order_id})
+
+                draft_orders.append({"draft_order": draft_order})
 
             self.draft_orders.update({name: draft_orders})
-
-        print(self.draft_orders)
 
 
     def send_draft_orders(self):
         params = f"draft_orders.json"
 
         for name, draft_orders in self.draft_orders.items():
-            pass
+            if draft_orders is None:
+                continue
 
-    def send_draft_order(self, data):
-        params = f"draft_orders.json"
-        draft_order = self.post_request(params, data).json()
-        draft_order_id = draft_order["draft_order"]["id"]
-        return draft_order_id  # ugly workaround
+            draft_order_ids = []
+            for draft_order in draft_orders:
+                draft_order = json.dumps(draft_order)
+                draft_order = self.post_request(params, draft_order).json()
+                draft_order_id = draft_order["draft_order"]["id"]
+                draft_order_ids.append(draft_order_id)
 
+            self.invoices.update({name: draft_order_ids})
 
-    def send_invoice(self, id):
-        params = f"draft_orders/{id}/send_invoice.json"
-        data = {"draft_order_invoice": {}}
-
-        invoice = self.post_request(params, data)
-        return invoice
+        print(self.invoices)
 
 
     def send_invoices(self):
-        for name, order_list in self.new_orders.items():
+        data = {"draft_order_invoice": {}}
+        for name, draft_order_ids in self.invoices.items():
+            for draft_order_id in draft_order_ids:
+                params = f"draft_orders/{draft_order_id}/send_invoice.json"
+                invoice = self.post_request(params, data).json()
 
-            if not order_list:  # if order list is empty
-                continue  # go to the next loop
+                print("\n_______________________________________")
+                print(invoice)
+                print("_______________________________________")
 
-            draft_order = self.make_draft_order(name, order_list)
-            draft_order.update({"customer": {"id": self.shops[name]["id"]}})
-            draft_order = {"draft_order": draft_order}
-            draft_order = json.dumps(draft_order)
 
-            draft_order_id = self.send_draft_order(draft_order)
-            self.send_invoice(draft_order_id)
+
 
 
     def get_paid_orders(self):
@@ -220,8 +224,8 @@ class OrderManager():
 
 
 om = OrderManager()
-om.get_new_orders()
-om.make_draft_orders()
+om.do_everything()
+
 # om.get_paid_orders()
 # print(om.paid_orders)
 # om.get_original_orders()
