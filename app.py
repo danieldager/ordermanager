@@ -16,7 +16,9 @@ class OrderManager():
         self.new_orders = {}
         self.draft_orders = {}
         self.invoices = {}
-        self.paid_orders = {}
+
+        self.paid_orders = []
+        self.original_orders = []
 
         self.unfulfilled_orders = {}
 
@@ -136,7 +138,8 @@ class OrderManager():
                 draft_order.update({"line_items": line_items})
 
                 order_id = order["id"]
-                draft_order.update({"note": order_id})
+                note = name + ":" + order_id
+                draft_order.update({"note": note})
 
                 draft_orders.append({"draft_order": draft_order})
 
@@ -159,8 +162,6 @@ class OrderManager():
 
             self.invoices.update({name: draft_order_ids})
 
-        print(self.invoices)
-
 
     def send_invoices(self):
         data = {"draft_order_invoice": {}}
@@ -169,47 +170,32 @@ class OrderManager():
                 params = f"draft_orders/{draft_order_id}/send_invoice.json"
                 invoice = self.post_request(params, data).json()
 
-                print("\n_______________________________________")
-                print(invoice)
-                print("_______________________________________")
-
-
-
-
 
     def get_paid_orders(self):
         params = f"orders.json?updated_at_min={self.last_time}&financial_status=paid"
         self.paid_orders = self.get_request(params).json()["orders"]
 
-        return self.paid_orders
-
 
     def get_original_orders(self):
-        orders = []
-
-        # for orders 
-
-        order_ids = self.paid_orders["note"].split(",")
-        for order_id in order_ids:
-            params = f"orders/{order_id}.json"
+        for order in self.paid_orders:
+            name, order_id = order["note"].split(":", 1)
             key = self.shops[name]["key"]
             password = self.shops[name]["password"]
+
+            params = f"orders/{order_id}.json"
             order = requests.get(
                 f"https://{name}.myshopify.com/admin/api/{self.version}/{params}",
-                auth=(key, password))
+                auth=(key, password)).json()["order"]
 
-            orders.append(order)
-
-        # print(orders)
-
+            self.original_orders.append(order)
 
 
     def send_fulfillment_email(self):
-        message = self.mailman.send_email(self.paid_orders)
+        message = self.mailman.send_email(self.original_orders)
         print(message)
 
 
-
+    # Eventually I'd like self.shops to auto update
     def get_customers(self):
         params = f"customers.json"
         customer_list = self.get_request(params).json()
@@ -217,16 +203,14 @@ class OrderManager():
 
 
 
-    def unfulfilled_email(self):
-        self.get_unfulfilled_orders()
-        self.send_fulfillment_email()
 
 
 
 om = OrderManager()
-om.do_everything()
+# om.do_everything()
 
-# om.get_paid_orders()
-# print(om.paid_orders)
-# om.get_original_orders()
-# om.send_fulfillment_email()
+om.get_paid_orders()
+om.get_original_orders()
+om.send_fulfillment_email()
+
+
