@@ -35,7 +35,10 @@ class Mailman():
 
         for order in orders:
             timestamp, junk = order["processed_at"].split("T")
-            message += f"\nOrder ID: {order['id']} \nDate Processed: {timestamp}"
+            message += f"Order ID: {order['id']} \nDate Processed: {timestamp}"
+
+            shipping_info = self.get_shipping_info(order)
+            message += shipping_info
 
             for item in order["line_items"]:
                 product_id = item['product_id']
@@ -44,12 +47,12 @@ class Mailman():
                 size = item["variant_title"]
 
                 name_id = f"\n\nItem Name: {title} \nProduct ID: {product_id}"
-                quantity_size = f"\nQuantity: {quantity} \nsize: {size}"
+                size_quantity = f"\nSize: {size} Quantity: {quantity}"
                 shipping_info = self.get_shipping_info(order)
 
-                message += name_id + quantity_size + shipping_info
+                message += name_id + size_quantity
 
-            message += "\n-----------------------------------------------------"
+            message += "\n\n----------------------------------------------------------------------------\n\n"
 
         return message
 
