@@ -59,8 +59,9 @@ class OrderManager():
         self.make_draft_orders()
         self.send_draft_orders()
         self.send_invoices()
-        # self.send_fulfillment_email()
-        # print(self.paid_orders)
+        self.get_paid_orders()
+        self.get_original_orders()
+        self.send_fulfillment_email()
 
     # See https://shopify.dev/docs/admin-api/rest/reference/orders/order
     # for examples on how to format your param(eter)s
@@ -203,14 +204,5 @@ class OrderManager():
 
 
 
-
-
-
 om = OrderManager()
-# om.do_everything()
-
-om.get_paid_orders()
-om.get_original_orders()
-om.send_fulfillment_email()
-
-
+om.do_everything()
